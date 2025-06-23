@@ -1,13 +1,13 @@
+// src/Board.h
 #ifndef BOARD_H
 #define BOARD_H
 
 #include <iostream>
 #include <string>
-#include "Player.h"
-#include "Constants.h" ✅ ¡IMPORTANTE! Para que se reconozca la estructura Player
+#include "Constants.h"
+#include "Player.h" // <--- ¡Añade o confirma esta línea!
 
 using namespace std;
-
 
 // Tipos de casilla personalizados
 const int TYPE_GO = 0;
@@ -24,9 +24,10 @@ struct Box {
     int Type;
     int Price;
     int Rent;
-    int Owner;     // -1 = sin dueño
+    int Owner;      // -1 = sin dueño, ID del jugador = dueño
     int Houses;
     bool Hotel;
+    int ID;         // Campo para almacenar el ID lineal de la casilla
 };
 
 // === Prototipos ===
@@ -37,13 +38,15 @@ void loadBoard(Box board[SIZE][SIZE]);
 void showBoard(Box board[SIZE][SIZE]);
 
 // --- Movimiento ---
-int rollDice(); // Genera un número aleatorio del 1 al 6
-Player movePlayer(Player player, int steps); // Devuelve el jugador actualizado
-void positionToCoords(int position, int coords[2]); // Convierte posición a coordenadas
-Box findBoxByID(Box board[SIZE][SIZE], int id); // Busca casilla por ID lineal
+int rollDice();
+Player movePlayer(Player player, int steps);
+void positionToCoords(int position, int coords[2]);
+Box findBoxByID(Box board[SIZE][SIZE], int id);
 
 // --- Visualización con jugadores ---
 void showBoardWithPlayers(Box board[SIZE][SIZE], Player Players[], int numPlayers);
 
+// --- Acciones de Casilla ---
+Player handleBoxAction(Player player, Box board[SIZE][SIZE], Player Players[MAX_PLAYERS]);
 
 #endif

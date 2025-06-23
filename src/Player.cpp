@@ -1,20 +1,23 @@
+// src/Player.cpp
 #include <iostream>
-#include <cstring>     // para strcpy
-#include "Board.h"
+#include <string>
+#include <cctype> // Para tolower
+#include "Board.h" // ¡Ahora sí necesitamos la definición completa de Box aquí para findBoxByID!
 #include "Constants.h"
+#include "Player.h" // Incluimos la cabecera de Player para la definición de la estructura
 
 using namespace std;
+
 
 void createPlayers(Player Players[], int Amount)
 {
     for (int i = 0; i < Amount; i++)
     {
-        cout << "Enter the name of player number " << i + 1 << ": ";
-        char inputName[25];
-        cin >> inputName;
-        strcpy(Players[i].Name, inputName);  // Guardar nombre en el struct
+        cout << "Ingresa el nombre del jugador #" << i + 1 << ": ";
+        cin >> Players[i].Name;
 
         // Inicializar datos
+        Players[i].ID = i; // Asigna el índice como ID del jugador
         Players[i].Cash = 1500;
         Players[i].Position = 0;
         Players[i].inJail = false;
@@ -42,12 +45,16 @@ void showPlayerStatus(Player player, Box board[SIZE][SIZE])
     cout << "Dinero: $" << player.Cash << endl;
     cout << "Posición actual: " << player.Position;
 
-    // Mostrar el nombre de la casilla en la que está
+    // findBoxByID devuelve una copia de la Box, lo cual es correcto para solo mostrar información.
     Box current = findBoxByID(board, player.Position);
     cout << " (" << current.Name << ")" << endl;
 
     // Mostrar si está en la cárcel
-    cout << "En la cárcel: " << (player.inJail ? "Sí" : "No") << endl;
+    cout << "En la cárcel: " << (player.inJail ? "Sí" : "No");
+    if (player.inJail) {
+        cout << " (Turnos en cárcel: " << player.turnsInJail << ")";
+    }
+    cout << endl;
 
     // Mostrar cartas
     cout << "Cartas de salir de la cárcel: " << player.numCards << endl;
@@ -59,7 +66,8 @@ void showPlayerStatus(Player player, Box board[SIZE][SIZE])
         cout << "ID de propiedades: ";
         for (int i = 0; i < player.totalProperties; i++)
         {
-            cout << player.Properties[i];
+            // findBoxByID devuelve una copia para mostrar el nombre.
+            cout << player.Properties[i] << " (" << findBoxByID(board, player.Properties[i]).Name << ")";
             if (i < player.totalProperties - 1)
                 cout << ", ";
         }
