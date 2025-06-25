@@ -41,14 +41,12 @@ void printBoard(Player p1, Player p2) {
         }
     }
 
-    // 2. Se mapea el array lineal del tablero (0-19) a las coordenadas de la rejilla.
-    // Fila superior (casillas 0-5)
+    // 2. Se mapea el array de SÍMBOLOS a las coordenadas de la rejilla.
+    // Nota: Esta es la implementación simple que usa los emojis directamente.
+    // No intenta corregir la alineación, por lo que puede verse "chueco" en la consola.
     for (int i = 0; i <= 5; ++i) grid[0][i] = "[ " + BOARD_SYMBOLS[i] + " ]";
-    // Columna derecha (casillas 6-9)
     for (int i = 0; i < 4; ++i) grid[1 + i][5] = "[ " + BOARD_SYMBOLS[6 + i] + " ]";
-    // Fila inferior (casillas 10-15), se mapea en reversa para el dibujado.
     for (int i = 0; i <= 5; ++i) grid[5][5 - i] = "[ " + BOARD_SYMBOLS[10 + i] + " ]";
-    // Columna izquierda (casillas 16-19), se mapea en reversa.
     for (int i = 0; i < 4; ++i) grid[4 - i][0] = "[ " + BOARD_SYMBOLS[16 + i] + " ]";
 
     // 3. Se obtiene la posición (fila, columna) de cada jugador usando la nueva función.
@@ -61,21 +59,20 @@ void printBoard(Player p1, Player p2) {
     grid[p2_coords.row][p2_coords.col][3] = '2';
 
     // 5. Se imprime la rejilla final y la leyenda.
-    cout << "================== TABLERO DE JUEGO ==================" << endl;
+    cout << "\n================== TABLERO DE JUEGO ==================" << endl;
     for (int i = 0; i < 6; ++i) {
+        string line = "";
         for (int j = 0; j < 6; ++j) {
-            cout << grid[i][j];
+            line += grid[i][j];
         }
-        cout << endl << endl; // Doble espacio vertical para mejor legibilidad.
+        cout << line << endl << endl; // Doble espacio vertical para mejor legibilidad.
     }
-    cout << "=======================================================" << endl;
+    cout << "======================================================" << endl;
     cout << "Leyenda:  1-" << p1.name << "   2-" << p2.name << endl;
-    cout << "Posicion " << p1.name << ": " << p1.position << " (" << PROPERTY_NAMES[p1.position] << ")" << endl;
-    cout << "Posicion " << p2.name << ": " << p2.position << " (" << PROPERTY_NAMES[p2.position] << ")" << endl;
 }
 
 
-// La función movePlayer no cambia.
+// La función movePlayer, ahora actualizada para ser consistente.
 Player movePlayer(Player player, int roll) {
     int oldPosition = player.position;
     // El operador módulo (%) asegura que la posición se mantenga dentro del rango 0-19.
@@ -83,13 +80,17 @@ Player movePlayer(Player player, int roll) {
 
     // Si la nueva posición es menor que la anterior, significa que ha completado una vuelta.
     if (player.position < oldPosition) {
-        cout << player.name << " ha pasado por la Salida y cobra $" << GO_BONUS << endl;
+        cout << player.name << " ha pasado por la Salida y cobra $" << GO_BONUS << "!" << endl;
         player.money += GO_BONUS;
     }
 
+    // --- CAMBIO IMPORTANTE ---
+    // Ahora el mensaje de movimiento usa BOARD_SYMBOLS para mostrar el emoji,
+    // en lugar de la letra de BOARD_LAYOUT, para que sea consistente con el tablero.
     cout << player.name << " ha sacado un " << roll << " y se mueve a la casilla " << player.position
-              << " (" << BOARD_LAYOUT[player.position] << ")" << endl;
+              << " " << BOARD_SYMBOLS[player.position] << endl; 
 
+    // Se muestra el nombre completo de la propiedad.
     if (PROPERTY_NAMES[player.position] != "") {
         cout << "Ha caido en: " << PROPERTY_NAMES[player.position] << endl;
     }
