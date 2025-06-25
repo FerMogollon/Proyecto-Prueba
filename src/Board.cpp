@@ -1,331 +1,98 @@
-// src/Board.cpp
+#include "Board.h"
+#include "Constants.h"
 #include <iostream>
-#include <string>
-#include <cstdlib>
-#include <ctime>
-#include <cctype> // Para tolower
-#include <limits> // Para numeric_limits<streamsize>::max()
-
-#include "Player.h" // Incluimos Player.h para la definición completa de Player
-#include "Board.h" // Incluimos Board.h para la definición de Box y los prototipos
-#include "Constants.h" // Incluye Constants.h para MAX_PLAYERS, SIZE, TILES
-
-// No necesitamos 'extern' aquí para Players o board porque ya se definen
-// en GameIO.cpp. Simplemente podemos acceder a ellos si fueran globales,
-// pero dado que los estamos pasando como parámetros, no hay problema.
-// El arreglo global 'Players' y 'board' se accederá a través de los parámetros
-// que, como arrays, se comportan como punteros al original.
 
 using namespace std;
 
+// ===================================================================
+// IMPLEMENTACIÓN DE LAS FUNCIONES DEL TABLERO
+// ===================================================================
 
-// Devuelve una casilla según su ID
-Box asignBox(int id)
-{
-    Box box;
 
-    string names[TILES] = {
-        "GO", "Prop 1", "Card", "Prop 2", "Tax",
-        "Prop 3", "Card", "Prop 4", "Prop 5", "Jail",
-        "Parking", "Prop 6", "Tax", "Prop 7", "Prop 8",
-        "Go to Jail", "Prop 9", "Card", "Prop 10", "Prop 11"};
+// --- Estructura Auxiliar ---
+// Se crea esta estructura para poder devolver dos valores (fila y columna)
+// desde la función getCoords sin usar punteros ni referencias.
+struct Coordinates {
+    int row;
+    int col;
+};
 
-    int types[TILES] = {
-        TYPE_GO, TYPE_PROPERTY, TYPE_CARD, TYPE_PROPERTY, TYPE_TAX,
-        TYPE_PROPERTY, TYPE_CARD, TYPE_PROPERTY, TYPE_PROPERTY, TYPE_JAIL,
-        TYPE_PARKING, TYPE_TAX, TYPE_PROPERTY, TYPE_PROPERTY, TYPE_GOTOJAIL,
-        TYPE_PROPERTY, TYPE_CARD, TYPE_PROPERTY, TYPE_PROPERTY, TYPE_PARKING}; // Corregido: antes había un error de índice con TYPE_TAX
 
-    int prices[TILES] = {
-        0, 100, 0, 120, 0,
-        150, 0, 180, 200, 0,
-        0, 220, 0, 240, 260,
-        0, 280, 0, 300, 320};
-
-    int rents[TILES] = {
-        0, 10, 0, 12, 50,
-        14, 0, 16, 18, 0,
-        0, 20, 50, 22, 24,
-        0, 26, 0, 28, 30};
-
-    box.Name = names[id];
-    box.Type = types[id];
-    box.Price = prices[id];
-    box.Rent = rents[id];
-    box.Owner = -1;
-    box.Houses = 0;
-    box.Hotel = false;
-    box.ID = id;
-
-    return box;
+// --- Función Auxiliar ---
+// Convierte la posición lineal del jugador (0-19) a coordenadas de la rejilla.
+// Devuelve una estructura 'Coordinates' por valor.
+Coordinates getCoords(int pos) {
+    Coordinates coords; // Se crea un objeto para guardar las coordenadas.
+    if (pos >= 0 && pos <= 5)      { coords.row = 0; coords.col = pos; }
+    else if (pos >= 6 && pos <= 9) { coords.row = pos - 5; coords.col = 5; }
+    else if (pos >= 10 && pos <= 15) { coords.row = 5; coords.col = 15 - pos; }
+    else if (pos >= 16 && pos <= 19) { coords.row = 19 - pos; coords.col = 0; }
+    return coords; // Se devuelve la estructura completa.
 }
 
-// loadBoard modifica el tablero global (pasado como array, que es un puntero)
-void loadBoard(Box board[SIZE][SIZE])
-{
-    // Primero, reinicializa todas las casillas a un estado vacío (para el caso de no carga de archivo)
-    for (int r = 0; r < SIZE; r++)
-    {
-        for (int c = 0; c < SIZE; c++)
-        {
-            board[r][c] = {"", -1, 0, 0, -1, 0, false, -1};
+
+// Implementación de la función mejorada para imprimir el tablero.
+void printBoard(Player p1, Player p2) {
+    // 1. Se crea una rejilla de 6x6 para representar visualmente el tablero.
+    string grid[6][6];
+    for (int i = 0; i < 6; ++i) {
+        for (int j = 0; j < 6; ++j) {
+            grid[i][j] = "     "; // Se llena el interior con espacios.
         }
     }
 
-    int id = 0;
+    // 2. Se mapea el array lineal del tablero (0-19) a las coordenadas de la rejilla.
+    // Fila superior (casillas 0-5)
+    for (int i = 0; i <= 5; ++i) grid[0][i] = "[ " + BOARD_SYMBOLS[i] + " ]";
+    // Columna derecha (casillas 6-9)
+    for (int i = 0; i < 4; ++i) grid[1 + i][5] = "[ " + BOARD_SYMBOLS[6 + i] + " ]";
+    // Fila inferior (casillas 10-15), se mapea en reversa para el dibujado.
+    for (int i = 0; i <= 5; ++i) grid[5][5 - i] = "[ " + BOARD_SYMBOLS[10 + i] + " ]";
+    // Columna izquierda (casillas 16-19), se mapea en reversa.
+    for (int i = 0; i < 4; ++i) grid[4 - i][0] = "[ " + BOARD_SYMBOLS[16 + i] + " ]";
 
-    // Fila inferior (derecha → izquierda)
-    for (int col = SIZE - 1; col >= 0 && id < TILES; col--)
-    {
-        board[SIZE - 1][col] = asignBox(id);
-        id++;
-    }
+    // 3. Se obtiene la posición (fila, columna) de cada jugador usando la nueva función.
+    Coordinates p1_coords = getCoords(p1.position);
+    Coordinates p2_coords = getCoords(p2.position);
 
-    // Columna izquierda (abajo → arriba, sin repetir esquina)
-    for (int row = SIZE - 2; row >= 0 && id < TILES; row--)
-    {
-        board[row][0] = asignBox(id);
-        id++;
-    }
+    // 4. Se colocan los indicadores de los jugadores ('1' y '2') en la rejilla.
+    // Se accede a los valores a través de la estructura (ej: p1_coords.row).
+    grid[p1_coords.row][p1_coords.col][1] = '1';
+    grid[p2_coords.row][p2_coords.col][3] = '2';
 
-    // Fila superior (izquierda → derecha, sin repetir esquina)
-    for (int col = 1; col < SIZE && id < TILES; col++)
-    {
-        board[0][col] = asignBox(id);
-        id++;
-    }
-
-    // Columna derecha (arriba → abajo, sin repetir esquina)
-    for (int row = 1; row < SIZE - 1 && id < TILES; row++)
-    {
-        board[row][SIZE - 1] = asignBox(id);
-        id++;
-    }
-    // NOTA: Después de esta función, si loadGame se llamó antes y encontró
-    // board_properties.txt, los Owners de las propiedades se sobrescribirán
-    // con los valores cargados.
-}
-
-char symbol(Box b)
-{
-    switch (b.Type)
-    {
-    case TYPE_GO:
-        return 'S';
-    case TYPE_PROPERTY:
-        return 'P';
-    case TYPE_CARD:
-        return 'C';
-    case TYPE_TAX:
-        return '$';
-    case TYPE_JAIL:
-        return 'J';
-    case TYPE_GOTOJAIL:
-        return 'G';
-    case TYPE_PARKING:
-        return 'E';
-    default:
-        return ' ';
-    }
-}
-
-void showBoard(Box board[SIZE][SIZE])
-{
-    cout << "\n=== TABLERO ===\n";
-    for (int r = 0; r < SIZE; r++)
-    {
-        for (int c = 0; c < SIZE; c++)
-        {
-            cout << "[" << symbol(board[r][c]) << "]";
+    // 5. Se imprime la rejilla final y la leyenda.
+    cout << "================== TABLERO DE JUEGO ==================" << endl;
+    for (int i = 0; i < 6; ++i) {
+        for (int j = 0; j < 6; ++j) {
+            cout << grid[i][j];
         }
-        cout << "\n";
+        cout << endl << endl; // Doble espacio vertical para mejor legibilidad.
     }
-    cout << "===============\n";
+    cout << "=======================================================" << endl;
+    cout << "Leyenda:  1-" << p1.name << "   2-" << p2.name << endl;
+    cout << "Posicion " << p1.name << ": " << p1.position << " (" << PROPERTY_NAMES[p1.position] << ")" << endl;
+    cout << "Posicion " << p2.name << ": " << p2.position << " (" << PROPERTY_NAMES[p2.position] << ")" << endl;
 }
 
-int rollDice ()
-{
-    return rand() % 6 + 1;
-}
 
-Player movePlayer (Player player, int Steps)
-{
-    player.Position = (player.Position + Steps) % TILES;
+// La función movePlayer no cambia.
+Player movePlayer(Player player, int roll) {
+    int oldPosition = player.position;
+    // El operador módulo (%) asegura que la posición se mantenga dentro del rango 0-19.
+    player.position = (oldPosition + roll) % BOARD_PERIMETER;
+
+    // Si la nueva posición es menor que la anterior, significa que ha completado una vuelta.
+    if (player.position < oldPosition) {
+        cout << player.name << " ha pasado por la Salida y cobra $" << GO_BONUS << endl;
+        player.money += GO_BONUS;
+    }
+
+    cout << player.name << " ha sacado un " << roll << " y se mueve a la casilla " << player.position
+              << " (" << BOARD_LAYOUT[player.position] << ")" << endl;
+
+    if (PROPERTY_NAMES[player.position] != "") {
+        cout << "Ha caido en: " << PROPERTY_NAMES[player.position] << endl;
+    }
+
     return player;
-}
-
-void positionToCoords(int position, int coords[2])
-{
-    if (position < 6)
-    {
-        coords[0] = SIZE - 1;
-        coords[1] = (SIZE - 1) - position;
-    }
-    else if (position < 11)
-    {
-        coords[0] = (SIZE - 1) - (position - 5);
-        coords[1] = 0;
-    }
-    else if (position < 16)
-    {
-        coords[0] = 0;
-        coords[1] = (position - 10);
-    }
-    else
-    {
-        coords[0] = (position - 15);
-        coords[1] = SIZE - 1;
-    }
-}
-
-Box findBoxByID(Box board[SIZE][SIZE], int id)
-{
-    int coords[2];
-    positionToCoords(id, coords);
-
-    if (coords[0] >= 0 && coords[0] < SIZE && coords[1] >= 0 && coords[1] < SIZE) {
-        return board[coords[0]][coords[1]]; // Devuelve una COPIA de la casilla
-    } else {
-        // En caso de ID inválido, devuelve la casilla GO como fallback.
-        // Asumiendo que GO está en la última posición asignada.
-        return board[SIZE-1][SIZE-1];
-    }
-}
-
-void showBoardWithPlayers(Box board[SIZE][SIZE], Player players[], int numPlayers)
-{
-    char display[SIZE][SIZE];
-
-    for (int r = 0; r < SIZE; r++)
-    {
-        for (int c = 0; c < SIZE; c++)
-        {
-            display[r][c] = symbol(board[r][c]);
-        }
-    }
-
-    for (int i = 0; i < numPlayers; i++)
-    {
-        if (players[i].Cash > -500) {
-            int coords[2];
-            positionToCoords(players[i].Position, coords);
-            display[coords[0]][coords[1]] = ('1' + i);
-        }
-    }
-
-    cout << "\n=== TABLERO CON JUGADORES ===\n";
-    for (int r = 0; r < SIZE; r++)
-    {
-        for (int c = 0; c < SIZE; c++)
-        {
-            cout << "[" << display[r][c] << "]";
-        }
-        cout << "\n";
-    }
-    cout << "=============================\n";
-}
-
-// --- Acciones de Casilla ---
-// Recibe Player por valor (se devolverá modificado)
-// Recibe Board por "valor" (es un array, así que es un puntero al original, lo que permite modificarlo)
-// Recibe Players[] por "valor" (es un array, así que es un puntero al original, lo que permite modificarlo)
-Player handleBoxAction(Player player, Box board[SIZE][SIZE], Player Players[MAX_PLAYERS]) {
-    int coords[2];
-    positionToCoords(player.Position, coords);
-
-    // Accedemos directamente a la casilla original en el tablero global a través del puntero
-    // implícito que C++ usa al pasar el array 'board'.
-    // Importante: No uses 'currentBox' para modificar la casilla, usa 'board[coords[0]][coords[1]]' directamente.
-    // currentBoxData es una COPIA de la casilla, solo para leer sus propiedades.
-    Box currentBoxData = board[coords[0]][coords[1]];
-
-    cout << "\n" << player.Name << " aterrizo en " << currentBoxData.Name << "." << endl;
-
-    switch (currentBoxData.Type) { // Usamos currentBoxData para el tipo, nombre, etc.
-        case TYPE_GO:
-            cout << "¡Es la casilla de SALIDA! No pasa nada adicional aqui (el bono por pasar por GO ya se manejó)." << endl;
-            break;
-
-        case TYPE_PROPERTY:
-            if (currentBoxData.Owner == -1) { // La propiedad no tiene dueño
-                cout << "Esta propiedad (" << currentBoxData.Name << ") cuesta $" << currentBoxData.Price << " y su renta es $" << currentBoxData.Rent << "." << endl;
-                cout << "Quieres comprarla, " << player.Name << "? (s/n): ";
-                char choice;
-                cin >> choice;
-                cin.ignore(numeric_limits<streamsize>::max(), '\n');
-
-                if (tolower(choice) == 's') {
-                    if (player.Cash >= currentBoxData.Price) {
-                        player.Cash -= currentBoxData.Price;
-                        // ¡Aquí modificamos el Owner directamente en el tablero global!
-                        board[coords[0]][coords[1]].Owner = player.ID;
-                        player.Properties[player.totalProperties] = currentBoxData.ID;
-                        player.totalProperties++;
-                        cout << player.Name << " compro " << currentBoxData.Name << "." << endl;
-                        cout << "Dinero restante: $" << player.Cash << endl;
-                    } else {
-                        cout << "No tienes suficiente dinero para comprar " << currentBoxData.Name << "." << endl;
-                    }
-                } else {
-                    cout << "No compraste " << currentBoxData.Name << "." << endl;
-                }
-            } else if (currentBoxData.Owner != player.ID) { // La propiedad tiene dueño y no es este jugador
-                cout << "Esta propiedad pertenece a " << Players[currentBoxData.Owner].Name << ". Debes pagar $" << currentBoxData.Rent << " de alquiler." << endl;
-                player.Cash -= currentBoxData.Rent;
-                // ¡Aquí modificamos el dinero del dueño directamente en el array Players global!
-                Players[currentBoxData.Owner].Cash += currentBoxData.Rent;
-                cout << player.Name << " pago $" << currentBoxData.Rent << " de alquiler." << endl;
-                cout << "Dinero restante: $" << player.Cash << endl;
-                cout << Players[currentBoxData.Owner].Name << " recibio $" << currentBoxData.Rent << "." << endl;
-
-            } else { // El jugador es el dueño
-                cout << "Eres el dueño de " << currentBoxData.Name << ". Estas a salvo." << endl;
-            }
-            break;
-
-        case TYPE_CARD: { // <--- Inicia un nuevo bloque de alcance aquí (¡corregido!)
-            int card_effect = rand() % 2; // 0 = Gana dinero, 1 = Pierde dinero
-            if (card_effect == 0) {
-                int amount = 50 + (rand() % 100); // Gana entre $50 y $150
-                cout << "Carta: Ganaste $" << amount << "!" << endl;
-                player.Cash += amount;
-            } else {
-                int amount = 30 + (rand() % 80); // Pierde entre $30 y $110
-                cout << "Carta: Perdiste $" << amount << "!" << endl;
-                player.Cash -= amount;
-            }
-            if (player.numCards < MAX_CARDS && rand() % 3 == 0) { // 1/3 de probabilidad de obtener una carta de salir de la cárcel
-                cout << "Has obtenido una carta de 'Salir de la cárcel'!" << endl;
-                player.Cards[player.numCards] = 0; // 0 podría ser el ID para carta de salir de la cárcel
-                player.numCards++;
-            }
-            break;
-        } // <--- Finaliza el bloque de alcance aquí
-
-        case TYPE_TAX:
-            cout << "Caiste en una casilla de Impuestos. Pagas $" << currentBoxData.Rent << "." << endl;
-            player.Cash -= currentBoxData.Rent;
-            cout << "Dinero restante: $" << player.Cash << endl;
-            break;
-
-        case TYPE_JAIL:
-            cout << "Estas de visita en la Cárcel. ¡Solo estas pasando!" << endl;
-            break;
-
-        case TYPE_GOTOJAIL:
-            cout << "¡Fuiste a la Carcel! Directo a la casilla de Cárcel." << endl;
-            player.Position = 9; // Posición de la cárcel (ajusta según tu tablero si es diferente)
-            player.inJail = true;
-            player.turnsInJail = 0; // Se resetearía al entrar
-            break;
-
-        case TYPE_PARKING:
-            cout << "Estacionamiento Gratuito. ¡Relajate un turno!" << endl;
-            break;
-
-        default:
-            cout << "Casilla desconocida. No pasa nada." << endl;
-            break;
-    }
-    return player; // Devuelve el jugador modificado
 }

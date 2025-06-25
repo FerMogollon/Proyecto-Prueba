@@ -1,41 +1,36 @@
-// src/Player.h
 #ifndef PLAYER_H
 #define PLAYER_H
 
-#include "Constants.h"
 #include <string>
-
-// Declaración anticipada de la estructura Box
-// Esto es importante para que showPlayerStatus pueda saber que Box existe
-// sin tener que incluir Board.h aquí, evitando dependencias circulares.
-struct Box;
+#include "Constants.h"
 
 using namespace std;
 
-// Data estructural para el jugador
-struct Player
-{
-    string Name;
-    int ID;             // ¡Este es el campo que corregimos!
-    int Cash;
-    int Position;
-    int Properties[MAX_PROPERTIES];
-    int totalProperties;
-    int Cards [MAX_CARDS];
-    int numCards;
-    bool inJail;
-    int turnsInJail;
+// ===================================================================
+// DEFINICIÓN DE LA ESTRUCTURA DEL JUGADOR
+// ===================================================================
+
+// La estructura 'Player' almacena toda la información de un jugador.
+struct Player {
+    string name;                        // Nombre del jugador.
+    int money;                          // Dinero disponible.
+    int position;                       // Posición actual en el tablero (0-19).
+    bool properties[BOARD_PERIMETER];   // Array que indica las propiedades que posee (true si la posee).
+    int getOutOfJailCards;              // Contador de cartas "Salir de la Cárcel".
+    int turnsInJail;                    // Turnos restantes que debe pasar en la cárcel.
+    bool isBankrupt;                    // Indica si el jugador ha entrado en bancarrota.
 };
 
-// Declaracion de las funciones (Prototipos)
-// createPlayers sigue recibiendo Players[] porque lo modifica directamente,
-// y como es un array, C++ lo pasa como puntero a su primer elemento,
-// lo que permite que se modifique el array original aunque no usemos 'referencias' explícitas.
-void createPlayers(Player Players[], int Amount);
+// --- Prototipos de Funciones (declaraciones) ---
+// La implementación de estas funciones está en Player.cpp.
 
-// showPlayerStatus puede recibir Player por valor porque solo muestra información, no la modifica.
-// El tablero se pasa como arreglo porque es lo que permite C++ sin 'referencias' explícitas a arrays.
-void showPlayerStatus(Player player, Box board[SIZE][SIZE]);
+// Crea una nueva instancia de Player con valores iniciales.
+Player createNewPlayer(string name);
 
+// Muestra en consola el estado actual de un jugador.
+void printPlayerStatus(Player player);
 
-#endif
+// Devuelve el número total de propiedades que posee un jugador.
+int countPlayerProperties(Player player);
+
+#endif // PLAYER_H

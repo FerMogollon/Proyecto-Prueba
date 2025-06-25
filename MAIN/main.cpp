@@ -1,250 +1,196 @@
-// MAIN/main.cpp
 #include <iostream>
-#include <cstdlib>
-#include <ctime>
-#include <limits>       // Para numeric_limits
 #include <string>
-#include <cctype>       // Para tolower
-#include <cstdio>       // Necesario para la función remove() y errno
+#include <limits>
+#include <cstdlib>
 
-// Asegúrate de que las inclusiones estén en este orden y con las rutas correctas (../src/)
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "../src/Constants.h"
 #include "../src/Player.h"
+#include "../src/GameIO.h"
 #include "../src/Board.h"
-#include "../src/GameIO.h" // Aquí es donde se declaran checkSavedGame, loadGameData, saveGame
-
-// Incluimos <cerrno> para usar errno y perror de forma más robusta con remove()
-#include <cerrno> // Para manejar errores específicos de remove()
+#include "../src/GameActions.h"
 
 using namespace std;
 
-// --- Función auxiliar para eliminar archivos de guardado ---
-// NOTA: Esta función asume que los archivos .txt están en el mismo directorio que el ejecutable.
-// Si tu ejecutable se crea en PROYECTO_RAIZ, los .txt deben estar allí.
-void deleteSaveFiles() {
-    int status_players = remove("players.txt");
-    int status_board = remove("board_properties.txt");
-
-    if (status_players == 0) {
-        cout << "Archivo players.txt eliminado correctamente." << endl;
-    } else if (status_players != 0 && errno == ENOENT) { // ENOENT = No such file or directory
-        cout << "players.txt no existe (no se pudo eliminar)." << endl;
-    } else {
-        // En caso de otro tipo de error al eliminar
-        perror("Error al eliminar players.txt");
-    }
-
-    if (status_board == 0) {
-        cout << "Archivo board_properties.txt eliminado correctamente." << endl;
-    } else if (status_board != 0 && errno == ENOENT) {
-        cout << "board_properties.txt no existe (no se pudo eliminar)." << endl;
-    } else {
-        perror("Error al eliminar board_properties.txt");
-    }
-}
-
+// Prototipos
+GameState checkGameOver(GameState gs);
+void showWinner(GameState gs);
+int getValidInput(int min, int max);
 
 int main() {
-    srand(time(0)); // Semilla para dados
+    #ifdef _WIN32
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+    #endif
 
-    cout << "🎲 BIENVENIDO A MINI MONOPOLY 🎲" << endl;
+    initializeRandom();
+    GameState gameState;
+    
+    cout << "========================================" << endl;
+    cout << "      BIENVENIDO A MINIMOPOLY 🏁" << endl;
+    cout << "========================================" << endl;
 
-    // --- Lógica de Inicio: Nueva Partida vs. Cargar Partida ---
-    bool saved_game_exists = checkSavedGame(); // Verifica si hay archivos de guardado
+    if (doesSaveExist()) {
+        SavedPlayerNames names = getSavedPlayerNames();
+        cout << "\nSe ha encontrado una partida guardada:" << endl;
+        cout << " -> " << names.p1_name << " vs " << names.p2_name << endl;
+        cout << "\nQue deseas hacer?" << endl;
+        cout << "1. Cargar partida 💾" << endl;
+        cout << "2. Empezar una nueva partida (se borrara la anterior) 🚮" << endl;
+        int choice = getValidInput(1, 2);
 
-    string start_choice;
-    if (saved_game_exists) {
-        cout << "\nSe encontró una partida guardada. ¿Qué deseas hacer?" << endl;
-        cout << "1. Continuar partida guardada" << endl;
-        cout << "2. Empezar nueva partida (eliminará la guardada)" << endl;
-        cout << "Elige una opción (1 o 2): ";
-        cin >> start_choice;
-        cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Limpiar buffer
-    } else {
-        cout << "\nNo se encontraron partidas guardadas. Se iniciará un nuevo juego." << endl;
-        start_choice = "2"; // Forzar nueva partida si no hay guardado
-    }
-
-    if (start_choice == "1" && saved_game_exists) {
-        loadGameData(); // Cargar la partida guardada
-        cout << "Partida guardada cargada exitosamente." << endl;
-    } else if (start_choice == "2") {
-        deleteSaveFiles(); // Eliminar cualquier partida guardada si se elige nueva partida
-        createPlayers(Players, MAX_PLAYERS); // Crear nuevos jugadores
-        cout << "Nueva partida iniciada." << endl;
-    } else {
-        // Opción inválida cuando hay partida guardada
-        if (saved_game_exists) {
-            cout << "Opción inválida. Se iniciará un nuevo juego por defecto." << endl;
-            deleteSaveFiles(); // También borra la guardada si se introdujo una opción errónea
-            createPlayers(Players, MAX_PLAYERS);
+        if (choice == 1) {
+            cout << "\nCargando partida guardada..." << endl;
+            gameState.players[0] = loadPlayer(names.p1_name);
+            gameState.players[1] = loadPlayer(names.p2_name);
         } else {
-            // Este caso no debería darse, pero como fallback si no hay guardado y no eligió '2'
-            createPlayers(Players, MAX_PLAYERS);
+            deleteOldSaveFiles();
+            cout << "\nIniciando nueva partida..." << endl;
+            string name1, name2;
+            cout << "Nombre del Jugador 1: ";
+            cin >> name1;
+            cout << "Nombre del Jugador 2: ";
+            cin >> name2;
+            gameState.players[0] = createNewPlayer(name1);
+            gameState.players[1] = createNewPlayer(name2);
+        }
+    } else {
+        cout << "\nNo se encontraron partidas guardadas." << endl;
+        cout << "Iniciando nueva partida..." << endl;
+        string name1, name2;
+        cout << "Nombre del Jugador 1: ";
+        cin >> name1;
+        cout << "Nombre del Jugador 2: ";
+        cin >> name2;
+        gameState.players[0] = createNewPlayer(name1);
+        gameState.players[1] = createNewPlayer(name2);
+    }
+    
+    gameState.currentPlayerIndex = 0;
+    gameState.isGameOver = false;
+
+    while (!gameState.isGameOver) {
+        Player currentPlayer = gameState.players[gameState.currentPlayerIndex];
+        cout << "\n==================== TURNO DE " << currentPlayer.name << " ====================" << endl;
+        printBoard(gameState.players[0], gameState.players[1]);
+
+        bool endTurn = false;
+        while (!endTurn) {
+            cout << "\n--- MENU ---" << endl;
+            cout << "1. Lanzar dado 🎲" << endl;
+            cout << "2. Ver mi dinero y propiedades 💰" << endl;
+            cout << "3. Guardar y Salir" << endl;
+            cout << "4. Salir sin guardar" << endl;
+            int choice = getValidInput(1, 4);
+            
+            if (choice == 1) {
+                endTurn = true;
+            } else if (choice == 2) {
+                printPlayerStatus(currentPlayer);
+                 cout << "Propiedades:" << endl;
+                 int propCount = countPlayerProperties(currentPlayer);
+                 if (propCount > 0) {
+                     for (int i=0; i < BOARD_PERIMETER; ++i) {
+                         if (currentPlayer.properties[i]) {
+                             cout << " - " << PROPERTY_NAMES[i] << endl;
+                         }
+                     }
+                 } else {
+                     cout << " - (Ninguna)" << endl;
+                 }
+            } else if (choice == 3) {
+                saveGame(gameState);
+                return 0;
+            } else if (choice == 4) {
+                cout << "Saliendo sin guardar. ¡Adios!" << endl;
+                return 0;
+            }
+        }
+        
+        if (currentPlayer.turnsInJail > 0) {
+            gameState = handleJailTurn(gameState);
+        } else {
+            gameState.players[gameState.currentPlayerIndex] = movePlayer(currentPlayer, rollDice());
+            currentPlayer = gameState.players[gameState.currentPlayerIndex]; // Recargar datos del jugador por si hubo cambios
+            char tileType = BOARD_LAYOUT[currentPlayer.position];
+
+            if (tileType == T_PROPERTY) { gameState = handleProperty(gameState); } 
+            else if (tileType == T_CARD) { gameState = handleSpecialCard(gameState); } 
+            else if (tileType == T_TAX) { gameState = handleTax(gameState); } 
+            else if (tileType == T_GO_TO_JAIL) { gameState = handleGoToJail(gameState); } 
+            else if (tileType == T_JAIL) { cout << "Estas de visita en la carcel." << endl; } 
+            else if (tileType == T_PARKING) { cout << "Estacionamiento libre." << endl; } 
+            else if (tileType == T_START) { /* Ya se maneja en movePlayer */ }
+        }
+
+        gameState = checkGameOver(gameState);
+        if (!gameState.isGameOver) {
+            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % NUM_PLAYERS;
         }
     }
 
-    // El tablero base siempre debe cargarse primero.
-    // Los owners y estados de las propiedades serán sobrescritos por loadGameData si se cargó un juego.
-    loadBoard(board);
-
-    // Mostrar posiciones iniciales
-    showBoardWithPlayers(board, Players, MAX_PLAYERS);
-
-    // --- Variables para el control del juego ---
-    bool game_over = false;
-    int current_player_index = 0; // Empieza con el Jugador 0
-    string input; // Para capturar la opción del menú
-
-    // --- Bucle principal del juego ---
-    while (!game_over) {
-        // Accedemos directamente a Players[current_player_index] (el global)
-        // en lugar de crear una referencia local o copia.
-
-        // Declara turn_finished dentro de este bucle para que se reinicie cada turno
-        // y esté en el ámbito correcto para toda la lógica de un turno.
-        bool turn_finished = false;
-        while (!turn_finished) {
-            cout << "\n--- TURNO DE " << Players[current_player_index].Name << " ---" << endl;
-            cout << "Dinero actual: $" << Players[current_player_index].Cash << endl;
-            cout << "Opciones:" << endl;
-            cout << "1. Lanzar dado y mover" << endl;
-            cout << "2. Ver estado completo del jugador" << endl;
-            cout << "3. Ver cartas de 'Salir de la cárcel' (" << Players[current_player_index].numCards << " disponibles)" << endl;
-            cout << "4. Salir del juego (sin guardar)" << endl;
-            cout << "5. Guardar juego y salir" << endl;
-
-            cout << "Elige una opción: ";
-            cin >> input;
-
-            // Limpiar el buffer de entrada para evitar problemas con futuras entradas
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-
-            if (input == "1") {
-                // Lógica para jugadores en la cárcel
-                if (Players[current_player_index].inJail) {
-                    cout << Players[current_player_index].Name << " está en la cárcel." << endl;
-                    Players[current_player_index].turnsInJail++;
-                    if (Players[current_player_index].turnsInJail >= 3) {
-                        cout << Players[current_player_index].Name << " ha cumplido 3 turnos en la cárcel. Puede pagar $50 para salir." << endl;
-                        if (Players[current_player_index].Cash >= 50) {
-                            cout << "¿Quieres pagar $50 para salir? (s/n): ";
-                            char pay_choice;
-                            cin >> pay_choice;
-                            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                            if (tolower(pay_choice) == 's') {
-                                Players[current_player_index].Cash -= 50;
-                                Players[current_player_index].inJail = false;
-                                Players[current_player_index].turnsInJail = 0;
-                                cout << Players[current_player_index].Name << " pagó $50 y salió de la cárcel." << endl;
-                                // Ahora que salió, puede tirar los dados
-                                int dice = rollDice();
-                                cout << "Sacaste un " << dice << " en el dado." << endl;
-                                int oldPosition = Players[current_player_index].Position;
-                                Players[current_player_index] = movePlayer(Players[current_player_index], dice); // Actualizar jugador
-                                cout << Players[current_player_index].Name << " ahora está en la casilla #" << Players[current_player_index].Position << ": " << findBoxByID(board, Players[current_player_index].Position).Name << endl;
-                                if (Players[current_player_index].Position < oldPosition) {
-                                     cout << "¡Pasaste por GO! Recibes un bono de $150." << endl;
-                                     Players[current_player_index].Cash += 150;
-                                }
-                                // handleBoxAction devuelve el jugador actualizado
-                                Players[current_player_index] = handleBoxAction(Players[current_player_index], board, Players);
-                            } else {
-                                cout << "No pagaste la fianza. Permaneces en la cárcel." << endl;
-                            }
-                        } else {
-                            cout << "No tienes suficiente dinero para pagar la fianza. Permaneces en la cárcel." << endl;
-                        }
-                    } else {
-                        cout << "Permaneces en la cárcel por " << Players[current_player_index].turnsInJail << " turno(s)." << endl;
-                    }
-                    turn_finished = true; // El turno termina estando en la cárcel o saliendo
-                } else {
-                    // Lógica normal de lanzamiento de dado y movimiento
-                    int dice = rollDice();
-                    cout << "Sacaste un " << dice << " en el dado." << endl;
-
-                    int oldPosition = Players[current_player_index].Position; // Guardamos la posición antigua
-                    Players[current_player_index] = movePlayer(Players[current_player_index], dice); // Actualizar jugador
-                    cout << Players[current_player_index].Name << " ahora está en la casilla #" << Players[current_player_index].Position << ": " << findBoxByID(board, Players[current_player_index].Position).Name << endl;
-
-                    // Recompensa por pasar por "GO" ($150)
-                    if (Players[current_player_index].Position < oldPosition) {
-                         cout << "¡Pasaste por GO! Recibes un bono de $150." << endl;
-                         Players[current_player_index].Cash += 150;
-                    }
-
-                    // Llama a la función de acción de casilla y actualiza el jugador
-                    Players[current_player_index] = handleBoxAction(Players[current_player_index], board, Players);
-                    turn_finished = true; // El turno termina después de moverse y actuar en la casilla
-                }
-            } else if (input == "2") {
-                showPlayerStatus(Players[current_player_index], board);
-            } else if (input == "3") {
-                if (Players[current_player_index].numCards > 0) {
-                    cout << "Tienes " << Players[current_player_index].numCards << " cartas de 'Salir de la cárcel'." << endl;
-                    // Lógica para usar la carta si está en la cárcel
-                    if (Players[current_player_index].inJail) {
-                        cout << "¿Quieres usar una carta para salir? (s/n): ";
-                        char card_choice;
-                        cin >> card_choice;
-                        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                        if (tolower(card_choice) == 's') {
-                            Players[current_player_index].numCards--;
-                            Players[current_player_index].inJail = false;
-                            Players[current_player_index].turnsInJail = 0;
-                            cout << Players[current_player_index].Name << " usó una carta y salió de la cárcel." << endl;
-                        }
-                    }
-                } else {
-                    cout << "No tienes cartas de 'Salir de la cárcel'." << endl;
-                }
-            } else if (input == "4") {
-                cout << "¿Estás seguro de que quieres salir sin guardar? Esto eliminará cualquier progreso guardado. (s/n): ";
-                char confirm_exit;
-                cin >> confirm_exit;
-                cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                if (tolower(confirm_exit) == 's') {
-                    deleteSaveFiles(); // Elimina el guardado al salir sin guardar
-                    game_over = true;
-                    turn_finished = true; // Termina el turno y el bucle principal
-                    cout << "Saliendo del juego." << endl;
-                }
-            } else if (input == "5") {
-                saveGame(); // Guardar el estado actual del juego
-                game_over = true;
-                turn_finished = true; // Termina el turno y el bucle principal
-                cout << "Juego guardado. Saliendo..." << endl;
-            }
-            else {
-                cout << "Opción no válida. Intenta de nuevo." << endl;
-            }
-        } // Fin del bucle while(!turn_finished)
-
-        // *** Validaciones de Fin de Juego ***
-        // 1. Bancarrota:
-        // Considera cómo manejar la bancarrota si solo hay un jugador o si quieres que termine el juego.
-        if (Players[current_player_index].Cash < -500) {
-            cout << "\n¡" << Players[current_player_index].Name << " ha caído en bancarrota y ha sido eliminado del juego!" << endl;
-            // Aquí puedes decidir si el juego termina inmediatamente o si el jugador simplemente se retira.
-            // Para este ejemplo, haremos que el juego termine si un jugador cae en bancarrota.
-            game_over = true;
-        }
-
-        // Si el juego no ha terminado por bancarrota o salida manual, actualizamos el tablero y pasamos al siguiente
-        if (!game_over) {
-            showBoardWithPlayers(board, Players, MAX_PLAYERS);
-            // Pasar al siguiente jugador
-            current_player_index = (current_player_index + 1) % MAX_PLAYERS;
-        }
-
-    } // Fin del bucle while(!game_over)
-
-    cout << "\n--- FIN DEL JUEGO ---" << endl;
-    if (game_over) {
-        // Puedes añadir lógica aquí para anunciar al ganador si es un juego de 2 jugadores y uno queda en bancarrota
-        cout << "¡Gracias por jugar Mini Monopoly!" << endl;
-    }
-
+    showWinner(gameState);
     return 0;
+}
+
+// El resto de funciones auxiliares (getValidInput, checkGameOver, etc.) no cambian.
+int getValidInput(int min, int max) {
+    int choice;
+    do {
+        cout << "Elige una opcion: ";
+        cin >> choice;
+        if (cin.fail()) {
+            cout << "Error: Por favor, ingresa solo numeros." << endl;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            choice = -1;
+        } else if (choice < min || choice > max) {
+            cout << "Error: Opcion fuera de rango. Intenta de nuevo." << endl;
+        }
+    } while (choice < min || choice > max);
+    return choice;
+}
+
+GameState checkGameOver(GameState gs) {
+    for (int i = 0; i < NUM_PLAYERS; ++i) {
+        if (gs.players[i].money < BANKRUPTCY_LIMIT) {
+            gs.players[i].isBankrupt = true;
+            gs.isGameOver = true;
+            cout << "!" << gs.players[i].name << " ha entrado en bancarrota! 📉" << endl;
+            return gs;
+        }
+    }
+    int propertiesOwned = 0;
+    for (int i = 0; i < BOARD_PERIMETER; ++i) {
+        if (BOARD_LAYOUT[i] == T_PROPERTY && getPropertyOwnerIndex(gs, i) != -1) {
+            propertiesOwned++;
+        }
+    }
+    if (propertiesOwned >= MAX_PROPERTIES) {
+        gs.isGameOver = true;
+        cout << "!Todas las propiedades han sido compradas!" << endl;
+    }
+    return gs;
+}
+
+void showWinner(GameState gs) {
+    Player winner;
+    if (gs.players[0].isBankrupt) { winner = gs.players[1]; } 
+    else if (gs.players[1].isBankrupt) { winner = gs.players[0]; } 
+    else {
+        int propsP1 = countPlayerProperties(gs.players[0]);
+        int propsP2 = countPlayerProperties(gs.players[1]);
+        if (propsP1 > propsP2) { winner = gs.players[0]; } 
+        else if (propsP2 > propsP1) { winner = gs.players[1]; } 
+        else {
+            if (gs.players[0].money > gs.players[1].money) { winner = gs.players[0]; } 
+            else { winner = gs.players[1]; }
+        }
+    }
+    cout << "\n==================== FIN DEL JUEGO ====================" << endl;
+    cout << "!!! El ganador es " << winner.name << " 🏆 !!!" << endl;
+    cout << "=======================================================" << endl;
 }
