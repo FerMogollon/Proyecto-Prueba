@@ -11,7 +11,6 @@ using namespace std;
 // representation of the game board and player movement calculations.
 // ===================================================================
 
-
 // --- Helper Structure: Coordinates ---
 // This struct is used to package a row and a column value together.
 // Its main purpose is to allow the getCoords function to return two integer
@@ -21,7 +20,6 @@ struct Coordinates
     int row;
     int col;
 };
-
 
 // --- Helper Function: getCoords ---
 // Translates a player's linear board position (an index from 0-19)
@@ -58,7 +56,6 @@ Coordinates getCoords(int pos)
     return coords; // Returns the complete struct by value.
 }
 
-
 // --- Main Board Drawing Function ---
 // This function renders the entire game board to the console.
 // It uses the Console module to print each element at precise (x,y) coordinates,
@@ -88,21 +85,28 @@ void printBoard(Player p1, Player p2)
     // 2. Draw the player markers on top of the board tiles.
     // Player 1
     Coordinates p1_coords = getCoords(p1.position);
-    printAt(startX + p1_coords.col * cellWidth + 5, startY + p1_coords.row * 2, "1");
+    printAt(startX + p1_coords.col * cellWidth + 5, startY + p1_coords.row * 2, p1.icon);
 
     // Player 2
     Coordinates p2_coords = getCoords(p2.position);
     // This logic places the '2' marker next to the '1' if they are on the same tile.
     if (p1.position == p2.position)
     {
-        printAt(startX + p2_coords.col * cellWidth + 6, startY + p2_coords.row * 2, "2");
+        printAt(startX + p2_coords.col * cellWidth + 6, startY + p2_coords.row * 2, p2.icon);
+    }
+
+    // If they are on different tiles, place the '2' marker slightly offset.
+    // This ensures that the player 2 icon does not overlap with player 1.
+    if (p1.position == p2.position)
+    {
+        printAt(startX + p2_coords.col * cellWidth + 4, startY + p2_coords.row * 2, p2.icon);
     }
     else
     {
-        printAt(startX + p2_coords.col * cellWidth + 5, startY + p2_coords.row * 2, "2");
+        // Usa el ícono del jugador 2
+        printAt(startX + p2_coords.col * cellWidth + 2, startY + p2_coords.row * 2, p2.icon);
     }
 }
-
 
 // --- Player Movement Logic Function ---
 // This function calculates the player's new position after a dice roll.

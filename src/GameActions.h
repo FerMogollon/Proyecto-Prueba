@@ -6,7 +6,8 @@ using namespace std;
 
 // This struct holds the entire state of the game, making it easy
 // to pass between functions.
-struct GameState {
+struct GameState
+{
     Player players[NUM_PLAYERS];
     int currentPlayerIndex;
     bool isGameOver;

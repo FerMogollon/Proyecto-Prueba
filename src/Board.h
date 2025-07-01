@@ -13,7 +13,7 @@
 // --- Function Prototypes ---
 
 // Converts a linear position (0-19) into 2D grid coordinates (row, col).
-// Draws the complete game board on the console, including the 
+// Draws the complete game board on the console, including the
 // position of both players (p1 and p2).
 void printBoard(Player p1, Player p2);
 

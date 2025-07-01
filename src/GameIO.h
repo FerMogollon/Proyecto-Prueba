@@ -16,7 +16,6 @@ struct SavedPlayerNames
     string p2_name;
 };
 
-
 // --- Function Prototypes ---
 
 // Returns 'true' if the master save file ("savegame.txt") exists.

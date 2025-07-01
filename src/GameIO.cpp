@@ -1,15 +1,17 @@
+// This define MUST be at the top to prevent name conflicts on Windows.
+#define WIN32_LEAN_AND_MEAN
+
 #include "GameIO.h"
+#include "Constants.h"
 #include <fstream>
 #include <iostream>
-#include <cstdio> // Required for the remove() function to delete files.
+#include <string>
+#include <sstream>
+#include <cstdio>
 
 using namespace std;
 
-// ===================================================================
-// IMPLEMENTATION OF GAME INPUT/OUTPUT FUNCTIONS (SAVE/LOAD)
-// ===================================================================
-
-// Internal helper function to save a single player's data to their .txt file.
+// Internal helper function to save a single player's data.
 void savePlayer(Player player)
 {
     ofstream file(player.name + ".txt");
@@ -19,7 +21,6 @@ void savePlayer(Player player)
         file << player.money << endl;
         file << player.position << endl;
         file << player.getOutOfJailCards << endl;
-        // Saves the indices of the properties owned by the player.
         for (int i = 0; i < BOARD_PERIMETER; ++i)
         {
             if (player.properties[i])
@@ -32,11 +33,11 @@ void savePlayer(Player player)
     }
 }
 
-// Checks if a master save file ("savegame.txt") exists.
+// Checks if a master save file exists.
 bool doesSaveExist()
 {
     ifstream file("savegame.txt");
-    return file.is_open(); // Returns true if the file could be opened (i.e., it exists).
+    return file.is_open();
 }
 
 // Gets the player names from the master save file.
@@ -52,41 +53,91 @@ SavedPlayerNames getSavedPlayerNames()
     return names;
 }
 
-// Loads a player's data from their file. If the file doesn't exist, it creates a new player.
-// NOTE: As requested, this function still contains the bug related to mixing '>>' and 'getline'
-// which can cause data corruption upon loading. It will be fixed later.
+// Loads a player's data from their file.
+// This is the robust version that reads line-by-line to prevent data corruption.
 Player loadPlayer(string name)
 {
     ifstream file(name + ".txt");
     if (file.is_open())
     {
         Player loadedPlayer;
-        file >> loadedPlayer.name;
-        file >> loadedPlayer.money;
-        file >> loadedPlayer.position;
-        file >> loadedPlayer.getOutOfJailCards;
+        string line;
 
-        // Clear properties before loading the saved ones.
-        for (int i = 0; i < BOARD_PERIMETER; ++i)
-            loadedPlayer.properties[i] = false;
+        // Read line by line and convert to the correct data type.
+        getline(file, loadedPlayer.name);
 
-        // Read the indices of the properties and assign them.
-        int propIndex;
-        while (file >> propIndex)
+        getline(file, line);
+        try
         {
-            if (propIndex >= 0 && propIndex < BOARD_PERIMETER)
+            loadedPlayer.money = stoi(line);
+        }
+        catch (...)
+        {
+            loadedPlayer.money = 0;
+        }
+
+        getline(file, line);
+        try
+        {
+            loadedPlayer.position = stoi(line);
+        }
+        catch (...)
+        {
+            loadedPlayer.position = 0;
+        }
+
+        getline(file, line);
+        try
+        {
+            loadedPlayer.getOutOfJailCards = stoi(line);
+        }
+        catch (...)
+        {
+            loadedPlayer.getOutOfJailCards = 0;
+        }
+
+        // Initialize properties to false before loading.
+        for (int i = 0; i < BOARD_PERIMETER; ++i)
+        {
+            loadedPlayer.properties[i] = false;
+        }
+
+        // Read the line containing property indices.
+        if (getline(file, line))
+        {
+            stringstream ss(line);
+            int propIndex;
+            while (ss >> propIndex)
             {
-                loadedPlayer.properties[propIndex] = true;
+                if (propIndex >= 0 && propIndex < BOARD_PERIMETER)
+                {
+                    loadedPlayer.properties[propIndex] = true;
+                }
             }
         }
+
         // Initialize non-saved values to their defaults.
         loadedPlayer.turnsInJail = 0;
         loadedPlayer.isBankrupt = false;
+
+        // Assign the correct icon based on the saved player order.
+        if (name == getSavedPlayerNames().p1_name)
+        {
+            loadedPlayer.icon = P1_ICON;
+        }
+        else
+        {
+            loadedPlayer.icon = P2_ICON;
+        }
+
         file.close();
-        cout << "Data for " << loadedPlayer.name << " has been loaded." << endl;
+        cout << "Data for " << loadedPlayer.name << " loaded successfully." << endl;
+
         return loadedPlayer;
     }
-    cout << "No data found for " << name << ". Creating new player..." << endl;
+
+    // This part only runs if the file could not be opened.
+    cout << "No data found for " << name << ". Creating new player." << endl;
     return createNewPlayer(name);
 }
 
@@ -94,10 +145,8 @@ Player loadPlayer(string name)
 void saveGame(GameState gs)
 {
     cout << "Saving game..." << endl;
-    // 1. Save each player's data to their respective file.
     savePlayer(gs.players[0]);
     savePlayer(gs.players[1]);
-    // 2. Create/overwrite the master save file with the session's player names.
     ofstream file("savegame.txt");
     if (file.is_open())
     {
@@ -115,10 +164,8 @@ void deleteOldSaveFiles()
     {
         cout << "Deleting data from the previous game..." << endl;
         SavedPlayerNames names = getSavedPlayerNames();
-        // Delete each player's file.
         remove((names.p1_name + ".txt").c_str());
         remove((names.p2_name + ".txt").c_str());
-        // Delete the master control file.
         remove("savegame.txt");
     }
 }

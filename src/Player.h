@@ -1,7 +1,7 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
-#include <string>       // Required to use the 'string' data type for the player's name.
+#include <string>      // Required to use the 'string' data type for the player's name.
 #include "Constants.h" // Required to use constants like 'BOARD_PERIMETER'.
 
 using namespace std;
@@ -14,20 +14,20 @@ using namespace std;
 // player into one custom data type.
 struct Player
 {
-    string name;                        // The player's name.
-    int money;                          // The amount of cash the player currently has.
-    int position;                       // The player's current position on the board (an index from 0-19).
-    
+    string name;  // The player's name.
+    string icon;  // The player's icon, which can be a car or a hat.
+    int money;    // The amount of cash the player currently has.
+    int position; // The player's current position on the board (an index from 0-19).
+
     // This boolean array acts as a checklist for property ownership.
     // If properties[i] is 'true', it means the player owns the property
     // located at board position 'i'.
-    bool properties[BOARD_PERIMETER];   
-    
-    int getOutOfJailCards;              // A counter for "Get Out of Jail Free" cards.
-    int turnsInJail;                    // A counter for turns remaining to be spent in jail.
-    bool isBankrupt;                    // A flag that becomes 'true' if the player goes bankrupt.
-};
+    bool properties[BOARD_PERIMETER];
 
+    int getOutOfJailCards; // A counter for "Get Out of Jail Free" cards.
+    int turnsInJail;       // A counter for turns remaining to be spent in jail.
+    bool isBankrupt;       // A flag that becomes 'true' if the player goes bankrupt.
+};
 
 // --- Function Prototypes (Declarations) ---
 // The implementation (the actual code) for these functions is in Player.cpp.
