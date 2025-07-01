@@ -60,6 +60,13 @@ GameState setupGame()
         if (choice == 1)
         {
             printAt(2, 14, "Loading saved game...");
+            Sleep(2000); // Simulate loading time
+            printAt(2, 1, "Loading game for " + names.p1_name + " and " + names.p2_name + "...");
+            // Load the players from their respective files.
+            Sleep(2000); // Simulate loading time
+            printAt(2, 3, "Game loaded successfully!");
+            printAt(2, 4, "Welcome back, " + names.p1_name + " and " + names.p2_name + "!");
+            Sleep(2000); // Simulate loading time
             gs.players[0] = loadPlayer(names.p1_name);
             gs.players[1] = loadPlayer(names.p2_name);
             gs.players[0].icon = P1_ICON; // Assign the car icon to player 1
@@ -85,6 +92,7 @@ GameState setupGame()
     {
         printAt(2, 5, "No saved games found.");
         printAt(2, 6, "Starting new game...");
+        Sleep(2000); // Simulate loading time
         string name1, name2;
         printAt(2, 8, "Player 1 name: ");
         cin >> name1;
@@ -201,6 +209,10 @@ GameState performTurnAction(GameState gs)
     else
     {
         int diceRoll = rollDice();
+        cout << currentPlayer.name << " is rolling the dice... ";
+        moveCursor(2, 20);
+        cout << "Rolling... ";
+        Sleep(1000); // Simulate rolling time   
         cout << currentPlayer.name << " rolled a " << diceRoll << "!" << endl;
 
         int oldPos = currentPlayer.position;
@@ -213,7 +225,6 @@ GameState performTurnAction(GameState gs)
             cout << "Passed GO and collects $" << to_string(GO_BONUS) << "!" << endl;
             moveCursor(2, 21);
         }
-        cout << "Landed on: " << PROPERTY_NAMES[currentPlayer.position] << endl;
 
         moveCursor(2, 23);
         switch (BOARD_LAYOUT[currentPlayer.position])
